@@ -27,8 +27,13 @@ text file with three multiplexed streams of text like:
 # English  | #French    | Spanish
 Hello      | Allo       | Hola
 ```
-Or a rich text format with content separate from formatting
-and style like:
+(Please note that this is not a plain text file.
+The pipe characters are only for visualisation purposes.
+A multiplexed file reader would only read text lines 
+from each stream separately)
+
+Another possible example is a rich text format with content 
+separate from formatting and style like:
 ```
 # Stream 1                        | # Stream 2
 With freedom and justice for all  | [justice] bold
