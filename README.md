@@ -69,5 +69,8 @@ The NSM and NFM markers are two-byte sequences, similar to
 utf-8's BOM, and identical across all platforms without 
 regard for system endianness.
 
+NSM stands for:  Next Stream Marker
+NFM stands for:  Next Frame Marker
+
 
 
