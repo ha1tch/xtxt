@@ -34,5 +34,6 @@ and style like:
 With freedom and justice for all  | [justice] bold
 ```
 Could render the text as:
+
 With freedom and **justice** for all
 
