@@ -25,6 +25,9 @@ In this extended text specification we are not interleaving
 characters similar to the way some video formats interleave
 their content. The main purpose of the extended text format
 is to be able to retrieve parallel lines of utf-8 text.
+Therefore text characters aren't interleaved in this case,
+in the case of extended text, we have multiple streams
+that are recorded as parallel lines of text.
 
 A typical case of an extended text file with multiplexed
 streams could be a subtitles text file with more than
@@ -53,4 +56,18 @@ With freedom and justice for all  | [justice] bold
 Could render the text as:
 
 With freedom and **justice** for all
+
+Parallel lines of text are recorded in the extended text file
+as follows:
+```
+[optional utf-8 BOM marker]
+
+Stream 1 text line 1 [NSM] Stream 2 text line 1 [NSM] [NFM] 
+Stream 1 text line 2 [NSM] Stream 2 text line 2 [NSM] [NFM]
+```
+The NSM and NFM markers are two-byte sequences, similar to 
+utf-8's BOM, and identical across all platforms without 
+regard for system endianness.
+
+
 
