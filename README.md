@@ -70,6 +70,7 @@ utf-8's BOM, and identical across all platforms without
 regard for system endianness.
 
 NSM stands for:  Next Stream Marker
+
 NFM stands for:  Next Frame Marker
 
 
