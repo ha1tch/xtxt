@@ -123,6 +123,8 @@ Other suggested ideas:
 - = not implemented yet
 * = implemented
 + = incomplete implementation
+
+Starting with Ruby:
 ```
                muxt   demuxt   muxcat   muxed
                -------------------------------
