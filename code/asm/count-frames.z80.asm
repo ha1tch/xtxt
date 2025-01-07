@@ -7,6 +7,7 @@ NFM_HIGH EQU $FF    ; High byte of the Next Frame Marker (NFM)
 ; Memory locations
 ORG $8000           ; Start of the program in memory for ZX Spectrum
 
+JP START
 ; Data section
 XTXT_DATA:          ; Pointer to XTXT data
     DB  'Hello, world!', $FF, $FD, 'Goodbye, world!', $FF, $FD
@@ -43,11 +44,12 @@ CHECK_END:
     SBC A, D            ; Compare with the high byte of DE
     JR NZ, SEARCH_LOOP  ; Loop until the end is reached
 
-STORE_RESULT:
+; STORE_RESULT:
     LD A, B             ; Load the frame count into A
     LD (frameCount), A  ; Store the frame count in memory
+    PUSH AF
 
-HALT:
-    JP HALT             ; Infinite loop to stop the program
+    RET
+
 
 END START

@@ -1,0 +1,80 @@
+             org 8000h; 8000h
+
+
+; Subroutine: Size=3, CC=1.
+; Called by: -
+; Calls: SUB2.
+8000 SUB1:
+8000              jp   SUB2   	; 8024h
+
+
+8003              defb 48h    	; 72, 'H'
+8004              defb 65h    	; 101, 'e'
+8005              defb 6Ch    	; 108, 'l'
+8006              defb 6Ch    	; 108, 'l'
+8007              defb 6Fh    	; 111, 'o'
+8008              defb 2Ch    	; 44, ','
+8009              defb 20h    	; 32, ' '
+800A              defb 77h    	; 119, 'w'
+800B              defb 6Fh    	; 111, 'o'
+800C              defb 72h    	; 114, 'r'
+800D              defb 6Ch    	; 108, 'l'
+800E              defb 64h    	; 100, 'd'
+800F              defb 21h    	; 33, '!'
+8010              defb FFh    	; 255,   -1
+8011              defb FDh    	; 253,   -3
+8012              defb 47h    	; 71, 'G'
+8013              defb 6Fh    	; 111, 'o'
+8014              defb 6Fh    	; 111, 'o'
+8015              defb 64h    	; 100, 'd'
+8016              defb 62h    	; 98, 'b'
+8017              defb 79h    	; 121, 'y'
+8018              defb 65h    	; 101, 'e'
+8019              defb 2Ch    	; 44, ','
+801A              defb 20h    	; 32, ' '
+801B              defb 77h    	; 119, 'w'
+801C              defb 6Fh    	; 111, 'o'
+801D              defb 72h    	; 114, 'r'
+801E              defb 6Ch    	; 108, 'l'
+801F              defb 64h    	; 100, 'd'
+8020              defb 21h    	; 33, '!'
+8021              defb FFh    	; 255,   -1
+8022              defb FDh    	; 253,   -3
+
+
+; Data accessed by:
+; 8040h(in SUB2)
+8023 DATA1:
+8023              defb 00h    	; 0
+
+
+; Subroutine: Size=33, CC=4.
+; Called by: SUB1[8000h].
+; Calls: -
+8024 SUB2:
+8024              ld   hl,8003h 	; 32771, -32765
+8027              ld   de,8023h 	; 32803, -32733
+802A              ld   b,00h  	; 0
+802C .sub2_loop:
+802C              ld   a,(hl) 
+802D              inc  hl     
+802E              cp   FFh    	; 255,   -1
+8030              jr   nz,.sub2_l 	; 8039h
+8032              ld   a,(hl) 
+8033              inc  hl     
+8034              cp   FDh    	; 253,   -3
+8036              jr   nz,.sub2_l 	; 8039h
+8038              inc  b      
+8039 .sub2_l:
+8039              ld   a,l    
+803A              cp   e      
+803B              ld   a,h    
+803C              sbc  a,d    
+803D              jr   nz,.sub2_loop 	; 802Ch
+803F              ld   a,b    
+8040              ld   (DATA1),a 	; 8023h
+8043              push af     
+8044              ret         
+; ...
+; ...
+; ...
