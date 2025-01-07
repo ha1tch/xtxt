@@ -67,17 +67,19 @@ START:
     JR NC, FILE_OPENED ; Jump if the carry flag is not set (success)
 
     ; Failed to open file
-    LD HL, FAILED_STRING : CALL PRINT_STRING
+    LD HL, FAILED_STRING 
+    CALL PRINT_STRING
     CALL NEW_LINE_ROUTINE
     RET
 
-FILE_OPENED:
+	FILE_OPENED:
     ; Save the file handle
     LD A, L
     LD (FILE_HANDLE), A
 
     ; Reset the frame counter
-    LD (FRAME_COUNT), 0
+    XOR A
+    LD (FRAME_COUNT), A
     
     ; Loop through the file and count the number of frames
 FILE_READ_LOOP:
@@ -89,7 +91,8 @@ FILE_READ_LOOP:
     DOS_FILE_CALL ROM_READ_FILE ; Read data from the file
     POP AF
     
-    LD DE, BC           ; Store the count of bytes read into DE for checking
+    PUSH BC
+    POP DE              ; Store the count of bytes read into DE for checking
 
     ; Check if end of file or error
     OR A                ; A will be zero if the end of file is reached or there was an error
@@ -150,7 +153,8 @@ FILE_END_CHECK: ; check for end of file or error
     OR A ; Set Zero flag if an error has occurred (in which case A would be 0)
     JR Z, OUTPUT_FRAMES ; if zero flag is set jump to output routine
     
-    LD HL, READ_ERROR_STRING : CALL PRINT_STRING
+    LD HL, READ_ERROR_STRING 
+    CALL PRINT_STRING
     CALL NEW_LINE_ROUTINE
     RET
 
@@ -166,7 +170,7 @@ OUTPUT_FRAMES:
     LD A, (FILE_HANDLE)
     DOS_FILE_CALL ROM_CLOSE_FILE
 
-PROGRAM_END:
+; PROGRAM_END:
     RET
 
 ; Subroutine: Print a number
