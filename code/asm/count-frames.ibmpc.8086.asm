@@ -1,11 +1,11 @@
-; 8086 Assembly Program to Count Frames in an XTXT File for MS-DOS
+; 8086 Assembly Program to Count Frames in an .XTX File for MS-DOS
 
 .MODEL SMALL
 .STACK 100H
 
 .DATA
 buffer DB 1024 DUP(?)        ; Buffer to load the .xtxt file
-filename DB 'input.xtxt', 0  ; Filename of the XTXT file
+filename DB 'INPUT.XTX', 0  ; Filename of the XTXT file
 fileHandle DW ?              ; File handle for the opened file
 bytesRead DW ?               ; Number of bytes read
 frameCount DW 0              ; Variable to store the number of frames
@@ -14,12 +14,13 @@ markerHigh DB 0FFH           ; High byte of the Next Frame Marker (NFM)
 markerLow DB 0FDH            ; Low byte of the Next Frame Marker (NFM)
 
 prompt DB 'Total frames: $'
+errorMsg DB 'Error: Could not open/read file.', 0dh, 0ah, '$'
 
 .CODE
 MAIN PROC
     MOV AX, @DATA            ; Load data segment into AX
     MOV DS, AX               ; Set DS to point to data segment
-    MOV ES, AX               ; Set ES to point to data segment (used for buffer)
+   ; MOV ES, AX               ; Not needed
 
     ; Open the file
     MOV AH, 3DH              ; DOS Open File function
@@ -29,6 +30,7 @@ MAIN PROC
     JC FILE_ERROR            ; Jump to error if the carry flag is set
     MOV fileHandle, AX       ; Store the file handle
 
+FILE_READ_LOOP:
     ; Read the file
     MOV AH, 3FH              ; DOS Read File function
     MOV BX, fileHandle       ; Load file handle
@@ -38,10 +40,9 @@ MAIN PROC
     JC FILE_ERROR            ; Jump to error if the carry flag is set
     MOV bytesRead, AX        ; Store the number of bytes read
 
-    ; Close the file
-    MOV AH, 3EH              ; DOS Close File function
-    MOV BX, fileHandle       ; Load file handle
-    INT 21H                  ; DOS interrupt
+    ; Check if we reached the end of the file
+    CMP AX, 0
+    JE FILE_READ_END         ; If bytesRead is zero, we reached the end
 
     ; Count frames in the buffer
     LEA SI, buffer           ; Load address of buffer into SI
@@ -50,7 +51,7 @@ MAIN PROC
 
 SEARCH_LOOP:
     CMP CX, 0                ; Check if all bytes have been processed
-    JE PRINT_RESULT          ; If CX is zero, jump to print the result
+    JE NEXT_READ             ; If CX is zero, jump to next read
 
     MOV AL, [SI]             ; Load the current byte into AL
     INC SI                   ; Increment SI to point to the next byte
@@ -60,7 +61,7 @@ SEARCH_LOOP:
     JNE SEARCH_LOOP          ; If not, continue searching
 
     CMP CX, 0                ; Ensure there is another byte to check
-    JE PRINT_RESULT          ; If not, jump to print the result
+    JE NEXT_READ          ; If not, jump to next read
 
     MOV AL, [SI]             ; Load the next byte into AL
     INC SI                   ; Increment SI
@@ -71,15 +72,26 @@ SEARCH_LOOP:
     INC BX                   ; Increment the frame counter
     JMP SEARCH_LOOP          ; Continue searching
 
-PRINT_RESULT:
-    MOV frameCount, BX       ; Store the frame count in memory
+NEXT_READ:
+     ADD frameCount, BX       ; Add accumulated frames
+     JMP FILE_READ_LOOP       ; Loop and read more data
+
+
+FILE_READ_END:
+
+
+    ; Close the file
+    MOV AH, 3EH              ; DOS Close File function
+    MOV BX, fileHandle       ; Load file handle
+    INT 21H                  ; DOS interrupt
 
     ; Print the result
+    MOV AX, frameCount      ; move the accumulated frame count into AX
     MOV AH, 09H              ; DOS Print String function
     LEA DX, prompt           ; Load address of the prompt string
     INT 21H                  ; DOS interrupt
 
-    MOV AX, frameCount       ; Load the frame count
+    ; Print the frame count
     CALL PRINT_NUMBER        ; Print the frame count
 
     ; Exit program
@@ -87,9 +99,9 @@ PRINT_RESULT:
     INT 21H                  ; Exit to DOS
 
 FILE_ERROR:
-    ; Handle file errors (optional)
+    ; Handle file errors
     MOV AH, 09H              ; DOS Print String function
-    LEA DX, prompt           ; Load address of an error string (if defined)
+    LEA DX, errorMsg         ; Load address of an error string
     INT 21H                  ; DOS interrupt
     MOV AH, 4CH              ; DOS terminate program function
     INT 21H                  ; Exit to DOS
