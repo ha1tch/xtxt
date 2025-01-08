@@ -8,7 +8,7 @@ NFM_HIGH EQU $FF    ; High byte of the Next Frame Marker (NFM)
 ROM_OPEN_FILE  EQU $4528    ; Opens a file from filename string
 ROM_CLOSE_FILE EQU $4590    ; Closes a file given filehandle
 ROM_READ_FILE  EQU $4557    ; Reads bytes from file to buffer
-ROM_PRINT_CHAR EQU $1601   ; Prints a character in register A to the screen
+ROM_PRINT_CHAR EQU $1601    ; Prints a character in register A to the screen
 ROM_NEW_LINE   EQU $165C    ; Prints a new line to the screen
 
 ; Memory locations
@@ -18,11 +18,10 @@ JP START
 
 ; Data section
 FILE_NAME:        DB "INPUT.XTX", 0    ; Null-terminated filename string
-FILE_HANDLE:      DB 0                ; Variable to store file handle
-FRAME_COUNT:      DB 0                ; Variable to store the number of frames
+FILE_HANDLE:      DB 0                 ; Variable to store file handle
+FRAME_COUNT:      DB 0                 ; Variable to store the number of frames
 FILE_BUFFER:      DS 512              ; Buffer to read file data (one disk sector)
-
-; Variables
+LAST_BYTE:        DB 0                ; Store last byte from previous block
 
 ; Subroutine: Selects the ROM bank by writing to the 0x7FFD port
 ; Input: A = ROM bank to select
@@ -139,10 +138,14 @@ DIV16_NO_SUB:
 
 ; Start of the program
 START:
+    ; Initialize last byte to 0
+    XOR A
+    LD (LAST_BYTE), A
+
     ; Open the file
     LD HL, FILE_NAME     ; Load file name address into HL
     ROM_CALL ROM_OPEN_FILE, $01 ; 3DOS ROM bank
-    JR NC, FILE_OPENED ; Jump if the carry flag is not set (success)
+    JR NC, FILE_OPENED   ; Jump if the carry flag is not set (success)
 
     ; Failed to open file
     LD HL, FAILED_STRING
@@ -164,37 +167,60 @@ FILE_READ_LOOP:
     ; Read file into memory buffer
     LD HL, FILE_BUFFER
     LD BC, 512            ; Read 512 bytes at a time (sector size)
-    LD A, (FILE_HANDLE)  ; Load the file handle into register A
+    LD A, (FILE_HANDLE)   ; Load the file handle into register A
     ROM_CALL ROM_READ_FILE, $01 ; 3DOS ROM bank
 
     JR C, READ_ERROR
-    OR A                ; A will be zero if the end of file is reached or there was an error
+    OR A                  ; A will be zero if the end of file is reached
     JR Z, FILE_END_CHECK
 
     ; Initialize frame counter and offset at this scope
-    LD B, 0
-    LD DE, 0    ; <--- Initialize offset DE counter for SEARCH_LOOP
+    LD B, 0              ; Frame counter for this block
+    LD DE, 0             ; Offset counter
+
+    ; Check for frame marker spanning previous block
+    LD A, (LAST_BYTE)
+    CP NFM_HIGH
+    JR NZ, SEARCH_LOOP
+    
+    LD A, (FILE_BUFFER)  ; Load first byte of new block
+    CP NFM_LOW
+    JR NZ, SEARCH_LOOP
+    
+    INC B               ; Found a frame marker spanning blocks
 
 SEARCH_LOOP:
-    LD A, (HL)          ; Load the current byte into A
-    INC HL              ; Increment HL to point to the next byte
-    CP NFM_HIGH         ; Compare the byte with the high byte of NFM
+    LD HL, FILE_BUFFER
+    ADD HL, DE          ; Point to current position in buffer
+    
+    LD A, (HL)         ; Load the current byte into A
+    INC HL             ; Increment HL to point to the next byte
+    CP NFM_HIGH        ; Compare the byte with the high byte of NFM
     JR NZ, CHECK_LOOP_END
 
-    LD A, (HL)          ; Load the next byte (low byte of NFM)
-    INC HL              ; Increment HL
-    CP NFM_LOW          ; Compare with the low byte of NFM
+    LD A, (HL)         ; Load the next byte (low byte of NFM)
+    CP NFM_LOW         ; Compare with the low byte of NFM
     JR NZ, CHECK_LOOP_END
 
-    INC B               ; Increment the frame count
+    INC B              ; Increment the frame count
 
 CHECK_LOOP_END:
-    ; Compare DE against bytes read to see if we have read through the whole block of data
     INC DE
     LD A, D
-    OR E
-    CP C
-    JR C, SEARCH_LOOP
+    CP 2               ; Check if we've processed 512 bytes (high byte = 2)
+    JR NC, BLOCK_DONE
+    
+    LD A, E
+    CP 0               ; Check if we've processed 512 bytes (low byte = 0)
+    JR NZ, SEARCH_LOOP
+
+BLOCK_DONE:
+    ; Save last byte of current block for next iteration
+    LD HL, FILE_BUFFER
+    LD DE, 511         ; Point to last byte
+    ADD HL, DE
+    LD A, (HL)
+    LD (LAST_BYTE), A
 
     ; Add current iteration count to total count
     LD A, (FRAME_COUNT)  ; load total count
@@ -202,13 +228,14 @@ CHECK_LOOP_END:
     LD (FRAME_COUNT), A  ; store new total count
 
     ; Jump back to read more data
-    JR FILE_READ_LOOP
+    JP FILE_READ_LOOP
 
 FILE_END_CHECK:
     ; Output the frame count
-    LD HL, FRAME_COUNT
-    LD A, (HL)          ; Load frame count into A
-    CALL PRINT_NUMBER   ; Convert number to string and print
+    LD A, (FRAME_COUNT)
+    LD L, A
+    LD H, 0
+    CALL PRINT_NUMBER
 
     CALL NEW_LINE_ROUTINE
 
@@ -224,6 +251,6 @@ READ_ERROR:
     RET
 
 ; Data strings
-STRING_BUFFER:      DS 10 ; Buffer to temporarily hold the string representation of the number
-FAILED_STRING: DB "FAILED", 0
-READ_ERROR_STRING: DB "READ ERROR", 0
+STRING_BUFFER:      DS 10  ; Buffer to temporarily hold the string representation of the number
+FAILED_STRING:      DB "FAILED", 0
+READ_ERROR_STRING:  DB "READ ERROR", 0
