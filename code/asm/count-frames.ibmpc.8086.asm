@@ -1,4 +1,4 @@
-; 8086 Assembly Program to Count Frames in an .XTX File for MS-DOS
+; 8086 Assembly Program to Count Frames in an XTXT File for MS-DOS
 
 .MODEL SMALL
 .STACK 100H
