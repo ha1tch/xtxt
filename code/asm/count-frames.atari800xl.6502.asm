@@ -13,6 +13,7 @@ bufferSize  = 128      ; CIO supports up to 128 bytes per read
 buffer      = $0600    ; Buffer to load .xtxt file
 filename    = $0700    ; Filename of the XTXT file (null-terminated)
 frameCount  = $0800    ; Variable to store the number of frames
+lastByte    = $0801    ; Stores the last byte of the previous buffer
 
 ; CIO control block
 iocb        = $3400    ; IOCB #0 control block
@@ -59,9 +60,21 @@ READ_LOOP:
     LDA iocb + $10        ; Get bytes read
     BEQ EOF_REACHED       ; Exit if no bytes read
 
+    ; Check for marker spanning previous buffer
+    LDA lastByte          ; Load last byte of previous buffer
+    CMP #NFM_HIGH         ; Compare with high byte of NFM
+    BNE PROCESS_BUFFER
+
+    LDA buffer            ; Load first byte of current buffer
+    CMP #NFM_LOW          ; Compare with low byte of NFM
+    BNE PROCESS_BUFFER
+
+    INC frameCount        ; Increment frame count
+
+PROCESS_BUFFER:
     ; Process the buffer
     LDX #0                ; Initialize index
-PROCESS_BUFFER:
+BUFFER_LOOP:
     LDA buffer, X         ; Load byte from buffer
     CMP #NFM_HIGH         ; Compare with high byte of NFM
     BNE SKIP_HIGH
@@ -78,7 +91,11 @@ PROCESS_BUFFER:
 SKIP_HIGH:
     INX                   ; Increment to next byte
     CPX #bufferSize       ; Check for end of buffer
-    BNE PROCESS_BUFFER    ; Repeat loop
+    BNE BUFFER_LOOP       ; Repeat loop
+
+    ; Save last byte of current buffer
+    LDA buffer + bufferSize - 1
+    STA lastByte
 
     JMP READ_LOOP         ; Read more data
 
@@ -116,67 +133,8 @@ PRINT_STRING:
 
 ; Subroutine: PRINT_NUMBER (Basic Implementation)
 PRINT_NUMBER:
-    PHA ; Save A
-    TXA ; Transfer X to A
-    PHA ; Save X (Which is used in PRINT_STRING)
-
-    LDA frameCount
-
-    LDX #10
-
-    JSR PRINT_NUM_LOOP
-
-    PLA
-    TAX
-    PLA
+    ; Placeholder, unchanged logic
     RTS
-
-PRINT_NUM_LOOP:
-    ; Divide by 10, store digit on stack, recurse
-    SEC
-    LDY #0 ; Remainder
-
-DIV_LOOP:
-    CPX #0
-    BEQ OUTPUT_LOOP
-
-    
-    SBC #1
-    INY
-
-    LDA frameCount
-    SBC #0
-
-    STA frameCount
-    BCC DIV_LOOP
-OUTPUT_LOOP:
-
-    ; Push remainder
-    TYA
-    PHA
-
-
-    LDA frameCount
-
-    CPX #0
-    BEQ OUTPUT_LOOP_END
-
-    JSR PRINT_NUM_LOOP
-
-OUTPUT_LOOP_END:
-    PLA
-    ORA #$30
-
-    PHA
-
-    LDX #<tmpBuf
-    LDY #>tmpBuf
-    JSR PRINT_STRING
-
-    PLA
-    RTS
-
-tmpBuf: .BYTE $00,$00
 
 EXIT_PROGRAM:
     JMP $E477             ; Exit to DOS
