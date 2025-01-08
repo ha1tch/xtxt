@@ -30,12 +30,73 @@ MSG_FRAMES:       DB "FRAMES: ", 0
 FAILED_STRING:    DB "FAILED", 0
 READ_ERROR_STRING:DB "READ ERROR", 0
 
-; Subroutine: Selects the ROM bank by writing to the 0x7FFD port
+; Variables for ROM and RAM tracking
+CURRENT_ROM:      DB $FF              ; Initialize to an invalid value
+CURRENT_RAM:      DB $00              ; Initialize to default RAM bank (Bank 0)
+
+; System variables
+PORT_7FFD_COPY:   EQU $5B5C           ; System variable for $7FFD state
+; PORT_1FFD_COPY:   EQU $5B67           ; System variable for $1FFD state
+
+; Subroutine: Selects the ROM bank by writing to the 0x7FFD and 0x1FFD ports
 ; Input: A = ROM bank to select
+; Updates: CURRENT_ROM variable, preserves RAM state
 SELECT_ROM_BANK:
-    LD BC, $7FFD       ; Port for ROM banking
-    OUT (C), A         ; Write the bank number to the port
+    PUSH AF
+    LD HL, CURRENT_ROM     ; Load CURRENT_ROM address
+    LD B, (HL)             ; Load current ROM from memory
+    CP B                   ; Compare with desired ROM
+    JR Z, SELECT_ROM_END   ; If already selected, return
+
+    LD (HL), A             ; Update CURRENT_ROM
+
+    ; Preserve RAM bank
+    LD HL, CURRENT_RAM     ; Load current RAM bank
+    LD B, (HL)             ; Store in B
+
+    ; Prepare $7FFD value
+    AND $30                ; Ensure only ROM bits are affected
+    OR B                   ; Combine with current RAM bank
+    LD (PORT_7FFD_COPY), A ; Update $7FFD system variable copy
+    DI                     ; Disable interrupts
+    OUT ($7FFD), A         ; Write to $7FFD
+    EI                     ; Enable interrupts
+
+SELECT_ROM_END:
+    POP AF
     RET
+
+; Subroutine: Selects the RAM bank by writing to the 0x7FFD port
+; Input: A = RAM bank to select (0–7)
+; Updates: CURRENT_RAM variable, preserves ROM state
+;SELECT_RAM_BANK:
+;    PUSH AF
+;    LD HL, CURRENT_RAM     ; Load CURRENT_RAM address
+;    LD B, (HL)             ; Load current RAM from memory
+;    CP B                   ; Compare with desired RAM
+;    JR Z, SELECT_RAM_END   ; If already selected, return
+;
+;    LD (HL), A             ; Update CURRENT_RAM
+;
+;    ; Preserve ROM bank
+;    LD HL, CURRENT_ROM     ; Load current ROM bank
+;    LD B, (HL)             ; Store in B
+;
+;    ; Prepare $7FFD value
+;    AND $07                ; Ensure only RAM bits are affected
+;    RLCA                   ; Shift B left by 4 bits
+;RLCA
+;RLCA
+;RLCA
+;OR A                  ; Combine with current ROM bank
+;    LD (PORT_7FFD_COPY), A ; Update $7FFD system variable copy
+;    DI                     ; Disable interrupts
+;    OUT ($7FFD), A         ; Write to $7FFD
+;    EI                     ; Enable interrupts
+;
+;SELECT_RAM_END:
+;    POP AF
+;    RET
 
 ; Macro for ROM call with explicit ROM bank switching
 ROM_CALL MACRO rom_address, bank
@@ -47,6 +108,7 @@ ROM_CALL MACRO rom_address, bank
     CALL SELECT_ROM_BANK ; Restore to BASIC ROM
     POP AF
 ENDM
+
 
 ; Subroutine: Print a null-terminated string (HL points to string)
 PRINT_STRING:
