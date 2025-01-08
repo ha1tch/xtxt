@@ -21,6 +21,7 @@ filename: DC.B   'INPUT.XTX',0    ; Filename of the XTXT file (null-terminated)
 fileHandle:   DS.W   1       ; File handle for the opened file
 bytesRead:   DS.W   1       ; Number of bytes read
 frameCount:  DS.W   1       ; Variable to store the number of frames
+lastByte:    DS.B   1       ; Last byte from previous buffer
 
 markerHigh:  DC.B   NFM_HIGH      ; High byte of NFM
 markerLow:  DC.B   NFM_LOW      ; Low byte of NFM
@@ -32,6 +33,7 @@ errorMessage:  DC.B 'File error occurred!',0 ; Error message string
     ORG $8000   ; Start of the code section
 START:
     CLR.W   frameCount    ; Initialize frame counter
+    CLR.B   lastByte      ; Reset last byte variable
 
     ; Open the file
     MOVE.L  #filename,A1    ; Load address of filename into A1
@@ -52,13 +54,21 @@ READ_LOOP:
     MOVE.W  D0,bytesRead    ; Store the number of bytes read
     BEQ     EOF_REACHED     ; Exit loop if EOF (D0 == 0)
 
+    ; Check for marker spanning previous buffer
+    CMP.B   lastByte,markerHigh ; Compare last byte from previous buffer with markerHigh
+    BNE     PROCESS_BUFFER
+    CMP.B   (buffer),markerLow  ; Compare first byte of current buffer with markerLow
+    BNE     PROCESS_BUFFER
+    ADDQ.W  #1,frameCount       ; Increment frame count
+
+PROCESS_BUFFER:
     ; Count frames in the buffer
     MOVE.L  #buffer,A0      ; Load address of buffer into A0
     MOVE.W  bytesRead,D0    ; Load number of bytes read into D0
 
 SEARCH_LOOP:
     CMP.W   #0,D0           ; Check if all bytes have been processed
-    BEQ     READ_LOOP       ; If D0 is zero, continue reading
+    BEQ     SAVE_LAST_BYTE  ; If D0 is zero, save last byte and continue
 
     MOVE.B  (A0)+,D2        ; Load the current byte into D2
     SUB.W   #1,D0           ; Decrement D0 (remaining bytes to process)
@@ -67,8 +77,7 @@ SEARCH_LOOP:
     BNE     SEARCH_LOOP     ; If not, continue searching
 
     CMP.W   #0,D0           ; Ensure there is at least one more byte to check
-    BEQ     READ_LOOP       ; If D0 is zero, continue reading
-
+    BEQ     SAVE_LAST_BYTE  ; If not, save last byte and continue
 
     MOVE.B  (A0)+,D2        ; Load the next byte into D2
     SUB.W   #1,D0           ; Decrement D0
@@ -77,6 +86,15 @@ SEARCH_LOOP:
 
     ADDQ.W  #1,frameCount   ; Increment the frame counter
     BRA     SEARCH_LOOP     ; Continue searching
+
+SAVE_LAST_BYTE:
+    ; Save the last byte of the current buffer
+    MOVE.L  #buffer,A0
+    ADD.W   bytesRead,D0    ; Adjust D0 to point to the last byte
+    SUBQ.W  #1,D0           ; Offset to the last valid byte
+    MOVE.B  (A0,D0),lastByte ; Save last byte
+
+    BRA     READ_LOOP       ; Read more data
 
 EOF_REACHED:
     ; Print the result
