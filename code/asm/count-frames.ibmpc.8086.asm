@@ -9,6 +9,7 @@ filename DB 'INPUT.XTX', 0  ; Filename of the XTXT file
 fileHandle DW ?              ; File handle for the opened file
 bytesRead DW ?               ; Number of bytes read
 frameCount DW 0              ; Variable to store the number of frames
+lastByte DB 0                ; Stores the last byte of the previous buffer
 
 markerHigh DB 0FFH           ; High byte of the Next Frame Marker (NFM)
 markerLow DB 0FDH            ; Low byte of the Next Frame Marker (NFM)
@@ -20,7 +21,6 @@ errorMsg DB 'Error: Could not open/read file.', 0dh, 0ah, '$'
 MAIN PROC
     MOV AX, @DATA            ; Load data segment into AX
     MOV DS, AX               ; Set DS to point to data segment
-   ; MOV ES, AX               ; Not needed
 
     ; Open the file
     MOV AH, 3DH              ; DOS Open File function
@@ -44,10 +44,17 @@ FILE_READ_LOOP:
     CMP AX, 0
     JE FILE_READ_END         ; If bytesRead is zero, we reached the end
 
-    ; Count frames in the buffer
+    ; Initialize variables
     LEA SI, buffer           ; Load address of buffer into SI
     MOV CX, bytesRead        ; Load number of bytes read into CX
     XOR BX, BX               ; Clear BX to use as the frame counter
+
+    ; Check for marker spanning previous buffer
+    CMP lastByte, markerHigh ; Compare last byte of previous buffer with markerHigh
+    JNE SEARCH_LOOP          ; If not matching, continue to normal search
+    CMP BYTE PTR [SI], markerLow ; Compare first byte of current buffer with markerLow
+    JNE SEARCH_LOOP          ; If not matching, continue to normal search
+    INC BX                   ; Found a marker spanning buffers
 
 SEARCH_LOOP:
     CMP CX, 0                ; Check if all bytes have been processed
@@ -61,7 +68,7 @@ SEARCH_LOOP:
     JNE SEARCH_LOOP          ; If not, continue searching
 
     CMP CX, 0                ; Ensure there is another byte to check
-    JE NEXT_READ          ; If not, jump to next read
+    JE NEXT_READ             ; If not, jump to next read
 
     MOV AL, [SI]             ; Load the next byte into AL
     INC SI                   ; Increment SI
@@ -73,20 +80,24 @@ SEARCH_LOOP:
     JMP SEARCH_LOOP          ; Continue searching
 
 NEXT_READ:
-     ADD frameCount, BX       ; Add accumulated frames
-     JMP FILE_READ_LOOP       ; Loop and read more data
+    ; Save last byte of the current buffer for next iteration
+    LEA SI, buffer           ; Reload buffer address
+    ADD SI, bytesRead        ; Point to the last byte of the buffer
+    DEC SI                   ; Adjust to the last valid byte
+    MOV AL, [SI]             ; Load the last byte
+    MOV lastByte, AL         ; Save it for the next buffer
 
+    ADD frameCount, BX       ; Add accumulated frames
+    JMP FILE_READ_LOOP       ; Loop and read more data
 
 FILE_READ_END:
-
-
     ; Close the file
     MOV AH, 3EH              ; DOS Close File function
     MOV BX, fileHandle       ; Load file handle
     INT 21H                  ; DOS interrupt
 
     ; Print the result
-    MOV AX, frameCount      ; move the accumulated frame count into AX
+    MOV AX, frameCount       ; Move the accumulated frame count into AX
     MOV AH, 09H              ; DOS Print String function
     LEA DX, prompt           ; Load address of the prompt string
     INT 21H                  ; DOS interrupt
