@@ -203,8 +203,16 @@ DIV16_NO_SUB:
     POP BC
     RET
 
+PRINT MACRO string
+    LD HL, $+1                  ; HL points to the start of the string
+    CALL PRINT_STRING           ; Call the string printing subroutine
+    DEFB string, 0              ; Embed the string in memory (null-terminated)
+ENDM
+
+
 ; Start of the program
 START:
+    PRINT "count-frames starting up..."
     ; Initialize counters
     XOR A
     LD (LAST_BYTE), A
