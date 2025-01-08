@@ -178,9 +178,9 @@ FILE_READ_LOOP:
     LD A, (FILE_HANDLE)  
     ROM_CALL ROM_READ_FILE, $01
 
-    JR C, READ_ERROR
+    JP C, READ_ERROR
     OR A                
-    JR Z, FILE_END_CHECK
+    JP Z, FILE_END_CHECK
 
     ; Initialize counters for this block
     LD B, 0              ; Frame counter for this block
